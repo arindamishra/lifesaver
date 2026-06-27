@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#7C6FCD">
+  <title>MOMENTUM</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="ambient-glow" aria-hidden="true"></div>
+
+  <main id="app" class="app-shell">
+    <section id="screen-onboarding" class="screen screen-onboarding" aria-live="polite">
+      <div class="progress-dots" id="onboarding-dots" aria-hidden="true"></div>
+      <div class="onboarding-track" id="onboarding-track"></div>
+    </section>
+
+    <section id="screen-dashboard" class="screen screen-dashboard">
+      <header class="dashboard-header">
+        <p class="eyebrow" id="today-label">Today</p>
+        <h1 id="greeting">Good evening,</h1>
+      </header>
+
+      <section class="mood-panel" id="mood-panel">
+        <div class="message-bubble" id="mood-question">Checking in...</div>
+        <div class="mood-selector" id="mood-selector" aria-label="Choose your current mood"></div>
+      </section>
+
+      <section class="section-block">
+        <div class="section-heading-row">
+          <div>
+            <p class="eyebrow">Today</p>
+            <h2>Tasks</h2>
+          </div>
+          <button class="icon-button" id="open-task-form" type="button" aria-label="Add task">+</button>
+        </div>
+
+        <form class="task-form hidden" id="task-form">
+          <label>
+            <span>Task name</span>
+            <div class="input-row">
+              <input id="task-name" name="taskName" type="text" autocomplete="off" required>
+              <button class="icon-button small" id="voice-task" type="button" aria-label="Dictate task name">mic</button>
+            </div>
+          </label>
+
+          <div class="form-grid">
+            <label>
+              <span>Deadline</span>
+              <input id="task-date" name="taskDate" type="date" required>
+            </label>
+            <label>
+              <span>At</span>
+              <input id="task-time" name="taskTime" type="time" required>
+            </label>
+          </div>
+
+          <fieldset>
+            <legend>How important is this to you?</legend>
+            <div class="segmented-control" data-input="importance">
+              <button type="button" data-value="low">Low</button>
+              <button type="button" data-value="medium">Medium</button>
+              <button type="button" data-value="high">High</button>
+              <button type="button" data-value="critical">Critical</button>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Estimated time</legend>
+            <div class="segmented-control" data-input="estimate">
+              <button type="button" data-value="">I don't know</button>
+              <button type="button" data-value="30">30 min</button>
+              <button type="button" data-value="60">1 hour</button>
+              <button type="button" data-value="120">2+ hours</button>
+            </div>
+          </fieldset>
+
+          <p class="form-error" id="task-form-error" role="alert"></p>
+          <button class="primary-button" type="submit">Add Task</button>
+        </form>
+
+        <div class="task-list" id="task-list"></div>
+        <details class="done-section" id="done-section">
+          <summary>Done today <span id="done-count">0</span></summary>
+          <div class="task-list done-list" id="done-list"></div>
+        </details>
+      </section>
+
+      <section class="quote-panel">
+        <div>
+          <p class="eyebrow">For right now</p>
+          <p id="daily-quote">A good plan starts with the next honest step.</p>
+        </div>
+        <button class="icon-button small" id="refresh-quote" type="button" aria-label="Refresh quote">↻</button>
+      </section>
+
+      <button class="primary-button plan-button" id="generate-plan" type="button">Generate My Plan</button>
+    </section>
+
+    <section id="screen-plan" class="screen screen-plan">
+      <button class="ghost-button back-button" id="back-dashboard" type="button">← Back to Dashboard</button>
+
+      <div id="plan-loading" class="plan-loading hidden">
+        <div class="pulse-orb" aria-hidden="true"></div>
+        <p id="loading-message">Reading your tasks...</p>
+      </div>
+
+      <article id="plan-content" class="plan-content hidden"></article>
+    </section>
+  </main>
+
+  <script src="ai.js"></script>
+  <script src="tasks.js"></script>
+  <script src="mood.js"></script>
+  <script src="onboarding.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      navigator.serviceWorker.register('/service-worker.js');
+    }
+  </script>
+</body>
+</html>
