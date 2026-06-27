@@ -1,4 +1,9 @@
-const CACHE = "momentum-v1";
+/* ═══════════════════════════════════════════════════════════════
+   MOMENTUM — Service Worker
+   Offline caching with cache-first strategy
+═══════════════════════════════════════════════════════════════ */
+
+const CACHE_VERSION = "momentum-v2";
 const ASSETS = [
   "/",
   "/index.html",
@@ -13,17 +18,50 @@ const ASSETS = [
   "/icon-512.png"
 ];
 
+/* ── Install: pre-cache all assets ── */
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
-});
-
-self.addEventListener("activate", event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
+    caches.open(CACHE_VERSION)
+      .then(cache => cache.addAll(ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
+/* ── Activate: clean up old caches ── */
+self.addEventListener("activate", event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
+  );
+});
+
+/* ── Fetch: cache-first, network fallback ── */
 self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET") return;
-  event.respondWith(caches.match(event.request).then(response => response || fetch(event.request)));
+  // Don't cache API calls
+  if (event.request.url.includes("generativelanguage.googleapis.com")) {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(response => {
+        // Cache successful GET requests
+        if (!response || response.status !== 200 || event.request.method !== "GET") {
+          return response;
+        }
+        const cloned = response.clone();
+        caches.open(CACHE_VERSION).then(cache => cache.put(event.request, cloned));
+        return response;
+      });
+    }).catch(() => {
+      // Offline fallback for navigation
+      if (event.request.mode === "navigate") {
+        return caches.match("/index.html");
+      }
+    })
+  );
 });

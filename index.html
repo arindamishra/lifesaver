@@ -2,66 +2,106 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#7C6FCD">
-  <title>MOMENTUM</title>
+  <meta name="description" content="MOMENTUM — Your AI-powered mood-aware productivity coach. Get a personalised plan built around how you actually feel today.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MOMENTUM">
+  <title>MOMENTUM — AI Productivity Coach</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Ambient breathing glow -->
   <div class="ambient-glow" aria-hidden="true"></div>
+  <!-- Subtle noise texture overlay -->
+  <div class="noise-overlay" aria-hidden="true"></div>
 
   <main id="app" class="app-shell">
-    <section id="screen-onboarding" class="screen screen-onboarding" aria-live="polite">
+
+    <!-- ═══════════════════════════════════════ ONBOARDING SCREEN -->
+    <section id="screen-onboarding" class="screen screen-onboarding" aria-live="polite" aria-label="Onboarding">
       <div class="progress-dots" id="onboarding-dots" aria-hidden="true"></div>
       <div class="onboarding-track" id="onboarding-track"></div>
     </section>
 
-    <section id="screen-dashboard" class="screen screen-dashboard">
+    <!-- ═══════════════════════════════════════ DASHBOARD SCREEN -->
+    <section id="screen-dashboard" class="screen screen-dashboard" aria-label="Dashboard">
+
       <header class="dashboard-header">
-        <p class="eyebrow" id="today-label">Today</p>
-        <h1 id="greeting">Good evening,</h1>
+        <div class="header-top-row">
+          <div>
+            <p class="eyebrow" id="today-label">Today</p>
+            <h1 id="greeting">Good evening,</h1>
+          </div>
+          <div class="header-badge" id="momentum-badge" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </div>
+        </div>
       </header>
 
-      <section class="mood-panel" id="mood-panel">
-        <div class="message-bubble" id="mood-question">Checking in...</div>
-        <div class="mood-selector" id="mood-selector" aria-label="Choose your current mood"></div>
+      <!-- Mood Check-In Panel -->
+      <section class="mood-panel" id="mood-panel" aria-label="Mood check-in">
+        <div class="message-bubble" id="mood-question" aria-live="polite">
+          <span class="bubble-typing">
+            <span></span><span></span><span></span>
+          </span>
+        </div>
+        <div class="mood-selector" id="mood-selector" role="group" aria-label="Choose your current mood"></div>
       </section>
 
-      <section class="section-block">
+      <!-- Tasks Section -->
+      <section class="section-block" aria-label="Tasks">
         <div class="section-heading-row">
           <div>
-            <p class="eyebrow">Today</p>
-            <h2>Tasks</h2>
+            <p class="eyebrow">Your tasks</p>
+            <h2>Today's Focus</h2>
           </div>
-          <button class="icon-button" id="open-task-form" type="button" aria-label="Add task">+</button>
+          <button class="icon-button" id="open-task-form" type="button" aria-label="Add task" aria-expanded="false">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
         </div>
 
-        <form class="task-form hidden" id="task-form">
-          <label>
-            <span>Task name</span>
+        <!-- Add Task Form -->
+        <form class="task-form hidden" id="task-form" novalidate>
+          <label class="form-label-group">
+            <span class="form-label">Task name</span>
             <div class="input-row">
-              <input id="task-name" name="taskName" type="text" autocomplete="off" required>
-              <button class="icon-button small" id="voice-task" type="button" aria-label="Dictate task name">mic</button>
+              <input id="task-name" name="taskName" type="text" autocomplete="off" placeholder="What do you need to do?" required>
+              <button class="icon-button small" id="voice-task" type="button" aria-label="Dictate task name" title="Voice input">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+              </button>
             </div>
           </label>
 
           <div class="form-grid">
-            <label>
-              <span>Deadline</span>
+            <label class="form-label-group">
+              <span class="form-label">Deadline date</span>
               <input id="task-date" name="taskDate" type="date" required>
             </label>
-            <label>
-              <span>At</span>
+            <label class="form-label-group">
+              <span class="form-label">At time</span>
               <input id="task-time" name="taskTime" type="time" required>
             </label>
           </div>
 
           <fieldset>
-            <legend>How important is this to you?</legend>
+            <legend class="form-label">How important is this?</legend>
             <div class="segmented-control" data-input="importance">
               <button type="button" data-value="low">Low</button>
               <button type="button" data-value="medium">Medium</button>
@@ -71,9 +111,9 @@
           </fieldset>
 
           <fieldset>
-            <legend>Estimated time</legend>
+            <legend class="form-label">Estimated time</legend>
             <div class="segmented-control" data-input="estimate">
-              <button type="button" data-value="">I don't know</button>
+              <button type="button" data-value="">Don't know</button>
               <button type="button" data-value="30">30 min</button>
               <button type="button" data-value="60">1 hour</button>
               <button type="button" data-value="120">2+ hours</button>
@@ -81,38 +121,79 @@
           </fieldset>
 
           <p class="form-error" id="task-form-error" role="alert"></p>
-          <button class="primary-button" type="submit">Add Task</button>
+          <button class="primary-button" type="submit" id="add-task-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Task
+          </button>
         </form>
 
-        <div class="task-list" id="task-list"></div>
-        <details class="done-section" id="done-section">
-          <summary>Done today <span id="done-count">0</span></summary>
-          <div class="task-list done-list" id="done-list"></div>
+        <!-- Active Task List -->
+        <div class="task-list" id="task-list" role="list"></div>
+
+        <!-- Done Today Collapsed -->
+        <details class="done-section hidden" id="done-section">
+          <summary>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Done today <span class="done-badge" id="done-count">0</span>
+          </summary>
+          <div class="task-list done-list" id="done-list" role="list"></div>
         </details>
       </section>
 
-      <section class="quote-panel">
-        <div>
+      <!-- Motivational Quote -->
+      <section class="quote-panel" aria-label="Daily motivation">
+        <div class="quote-inner">
           <p class="eyebrow">For right now</p>
-          <p id="daily-quote">A good plan starts with the next honest step.</p>
+          <p id="daily-quote" class="quote-text">A good plan starts with the next honest step.</p>
         </div>
-        <button class="icon-button small" id="refresh-quote" type="button" aria-label="Refresh quote">↻</button>
+        <button class="icon-button small refresh-btn" id="refresh-quote" type="button" aria-label="Refresh quote" title="New quote">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
       </section>
 
-      <button class="primary-button plan-button" id="generate-plan" type="button">Generate My Plan</button>
+      <!-- Generate Plan CTA -->
+      <button class="primary-button plan-button" id="generate-plan" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        Generate My Plan
+      </button>
     </section>
 
-    <section id="screen-plan" class="screen screen-plan">
-      <button class="ghost-button back-button" id="back-dashboard" type="button">← Back to Dashboard</button>
+    <!-- ═══════════════════════════════════════ PLAN SCREEN -->
+    <section id="screen-plan" class="screen screen-plan" aria-label="Your plan">
 
-      <div id="plan-loading" class="plan-loading hidden">
-        <div class="pulse-orb" aria-hidden="true"></div>
-        <p id="loading-message">Reading your tasks...</p>
+      <button class="ghost-button back-button" id="back-dashboard" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Dashboard
+      </button>
+
+      <div id="plan-loading" class="plan-loading hidden" role="status" aria-live="polite">
+        <div class="pulse-ring" aria-hidden="true">
+          <div class="pulse-orb"></div>
+        </div>
+        <p id="loading-message" class="loading-text">Reading your tasks...</p>
+        <div class="loading-dots" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
       </div>
 
       <article id="plan-content" class="plan-content hidden"></article>
     </section>
+
   </main>
+
+  <!-- Celebration particle overlay -->
+  <div id="celebrate-overlay" class="celebrate-overlay" aria-hidden="true"></div>
 
   <script src="ai.js"></script>
   <script src="tasks.js"></script>

@@ -1,6 +1,13 @@
-const GEMINI_KEY = "AQ.Ab8RN6JyaVAnpJISrRDXuI6c97oA4mMI_5rDQGm8i_5JjHjtRg";
+/* ═══════════════════════════════════════════════════════════════
+   MOMENTUM — AI Module
+   All Gemini API calls, prompt builders, and fallbacks
+═══════════════════════════════════════════════════════════════ */
+
+// ⚠️  Replace this with your Google AI Studio key:
+const GEMINI_KEY = "YOUR_API_KEY_HERE";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
 
+/* ── Master System Prompt ── */
 const MASTER_SYSTEM_PROMPT = `
 You are a personal AI productivity coach. You are not generic. You are not corporate.
 You speak like a smart, calm, honest friend who understands how people actually work,
@@ -19,33 +26,35 @@ YOUR FORMATTING RULES:
 - Use simple plain language. No jargon.
 - Break everything into small, completable steps.
 - Always tell the user what to do FIRST, not a list of options, one clear starting point.
-- For the plan, use this structure:
-  SITUATION: (one honest sentence about where they stand)
-  START HERE: (the single first action to take right now)
-  YOUR PLAN: (numbered steps with time estimates)
-  LET GO OF: (what to deprioritise or drop entirely)
-  REMEMBER: (one short, genuine motivational line, not generic, tailored to them)
 `;
 
+/* ── Context Builder ── */
 function getAIContext() {
   const profile = getUserProfile();
   const session = getSession();
-  const tasks = getTasks().filter(task => !task.completed);
-  const now = new Date();
+  const tasks   = getTasks().filter(t => !t.completed);
+  const now     = new Date();
 
   return `
 FULL USER CONTEXT:
 - Current date and time: ${now.toLocaleString()}
+- Time of day: ${getTimeOfDay()}
 - Procrastination type: ${profile.procrastinationType || "unknown"}
 - Deadline behaviour: ${profile.deadlineBehaviour || "unknown"}
 - Energy cliff: ${profile.energyCliff || "unknown"}
 - Motivation trigger: ${profile.motivationTrigger || "unknown"}
 - Current mood: ${session.moodLabel || "not checked in"} ${session.moodEmoji || ""}
-- Active tasks:
-${tasks.length ? tasks.map(task => `  - ${task.name}; deadline ${formatDeadline(task.deadline)}; importance ${task.importance}; estimate ${task.estimatedMinutes ? task.estimatedMinutes + " minutes" : "unknown"}`).join("\n") : "  - No active tasks yet"}
+- Active tasks (${tasks.length}):
+${tasks.length
+  ? tasks.map(t =>
+      `  • "${t.name}" | deadline: ${formatDeadline(t.deadline)} | importance: ${t.importance} | estimate: ${t.estimatedMinutes ? t.estimatedMinutes + " minutes" : "unknown"}`
+    ).join("\n")
+  : "  No active tasks yet"
+}
 `;
 }
 
+/* ── Core API Call ── */
 async function callGemini(systemPrompt, userMessage) {
   const response = await fetch(GEMINI_URL, {
     method: "POST",
@@ -57,23 +66,22 @@ async function callGemini(systemPrompt, userMessage) {
   });
 
   if (!response.ok) {
-    throw new Error("The AI request did not complete.");
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || "The AI request did not complete.");
   }
 
   const data = await response.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-  if (!text) {
-    throw new Error("The AI returned an empty response.");
-  }
-
+  if (!text) throw new Error("The AI returned an empty response.");
   return text.trim();
 }
 
+/* ── Safe Wrapper ── */
 async function callGeminiSafe(systemPrompt, userMessage) {
   try {
-    const contextPrompt = `${MASTER_SYSTEM_PROMPT}\n${getAIContext()}\n${systemPrompt}`;
-    const result = await callGemini(contextPrompt, userMessage);
+    const fullSystem = `${MASTER_SYSTEM_PROMPT}\n${getAIContext()}\n${systemPrompt}`;
+    const result     = await callGemini(fullSystem, userMessage);
     return { success: true, data: result };
   } catch (error) {
     console.error("Gemini error:", error);
@@ -81,102 +89,107 @@ async function callGeminiSafe(systemPrompt, userMessage) {
   }
 }
 
+/* ── Mood Check-In Question ── */
 async function generateMoodQuestion() {
-  const profile = getUserProfile();
   const now = new Date();
   const prompt = `
-Generate one natural check-in question for the user.
-It should be based on the time of day, current date, and their profile.
-Make it sound like a calm friend, not an app survey.
-Return ONLY the question text.
+Generate ONE very short, casual check-in question for the user.
+Keep it under 80 characters. Sound like a calm friend, not a survey.
+Base it on the current time of day and day of the week.
+Return ONLY the question text. No quotation marks. No preamble.
 `;
-  const result = await callGeminiSafe(prompt, `Time now: ${now.toLocaleString()}. Profile: ${JSON.stringify(profile)}`);
+  const result = await callGeminiSafe(prompt, `Time: ${now.toLocaleString()}`);
   return result.success ? result.data : fallbackMoodQuestion();
 }
 
+/* ── Task AI Subtitle ── */
 async function generateTaskSubtitle(task) {
   const prompt = `
-Write one short subtitle for this task card.
-It must be one line, specific, and under 90 characters.
+Write ONE short insight for this task card.
+Max 85 characters. One line. Specific. Actionable.
+Sound like a coach who knows how this person avoids tasks.
 No quotation marks. No preamble.
 `;
-  const result = await callGeminiSafe(prompt, `Task: ${JSON.stringify(task)}`);
+  const result = await callGeminiSafe(prompt, `Task: ${task.name} | Importance: ${task.importance} | Deadline: ${formatDeadline(task.deadline)}`);
   return result.success ? result.data : fallbackTaskSubtitle(task);
 }
 
+/* ── Daily Quote ── */
 async function generateDailyQuote(forceRefresh = false) {
   const session = getSession();
-  const today = getTodayKey();
+  const today   = getTodayKey();
+
   if (!forceRefresh && session.dailyQuote && session.quoteGeneratedDate === today) {
     return session.dailyQuote;
   }
 
   const profile = getUserProfile();
   const prompt = `
-Generate one short motivational quote for this person.
+Generate ONE short motivational quote for this person.
 DO NOT use famous quotes. DO NOT be generic.
-Write it as if you know them personally.
+Write it as if you know them personally — reference their actual work patterns.
 
 Their profile:
-- Procrastination type: ${profile.procrastinationType}
-- Deadline behaviour: ${profile.deadlineBehaviour}
-- Energy cliff: ${profile.energyCliff}
-- Motivation trigger: ${profile.motivationTrigger}
-- Current mood: ${session.moodLabel}
+- Procrastination type: ${profile.procrastinationType || "unknown"}
+- Deadline behaviour: ${profile.deadlineBehaviour || "unknown"}
+- Energy cliff: ${profile.energyCliff || "unknown"}
+- Motivation trigger: ${profile.motivationTrigger || "unknown"}
+- Current mood: ${session.moodLabel || "unknown"}
 - Time of day: ${getTimeOfDay()}
 
 The quote should:
 - Be 1-2 sentences maximum
-- Feel like something a smart friend would say, not a poster
+- Feel like something a smart friend would text, not a poster
 - Reference something real about how they work
 - Not be preachy or pushy
 
-Return ONLY the quote text. No quotation marks. No attribution. No preamble.
+Return ONLY the quote. No quotation marks. No attribution. No preamble.
 `;
 
-  const result = await callGeminiSafe(prompt, "Create today's quote.");
-  const quote = result.success ? result.data : fallbackQuote();
+  const result = await callGeminiSafe(prompt, "Create today's personalised quote.");
+  const quote  = result.success ? result.data : fallbackQuote();
   saveSession({ ...session, dailyQuote: quote, quoteGeneratedDate: today });
   return quote;
 }
 
+/* ── Build Plan Prompt ── */
 function buildPlanPrompt() {
-  const tasks = getTasks().filter(task => !task.completed).sort(sortByDeadline);
+  const tasks   = getTasks().filter(t => !t.completed).sort(sortByDeadline);
   const profile = getUserProfile();
   const session = getSession();
-  const now = new Date();
+  const now     = new Date();
 
   return `
 You are generating a personalised productivity plan.
 
 USER PROFILE:
-- When they procrastinate: ${profile.procrastinationType}
-- Deadline behaviour: ${profile.deadlineBehaviour}
-- Energy crash time: ${profile.energyCliff}
-- What motivates them: ${profile.motivationTrigger}
+- When they procrastinate: ${profile.procrastinationType || "unknown"}
+- Deadline behaviour: ${profile.deadlineBehaviour || "unknown"}
+- Energy crash time: ${profile.energyCliff || "unknown"}
+- What motivates them: ${profile.motivationTrigger || "unknown"}
 
 CURRENT STATE:
-- Mood right now: ${session.moodLabel} (${session.moodEmoji})
+- Mood right now: ${session.moodLabel || "unknown"} (${session.moodEmoji || ""})
 - Current time: ${now.toLocaleTimeString()}
 - Current date: ${now.toLocaleDateString()}
 
 THEIR TASKS (sorted by deadline):
-${tasks.map(task => `
-TASK: ${task.name}
-Deadline: ${formatDeadline(task.deadline)}
-Importance: ${task.importance}
-Estimated time: ${task.estimatedMinutes ? task.estimatedMinutes + " minutes" : "unknown"}
+${tasks.map(t => `
+TASK: ${t.name}
+Deadline: ${formatDeadline(t.deadline)}
+Importance: ${t.importance}
+Estimated time: ${t.estimatedMinutes ? t.estimatedMinutes + " minutes" : "unknown"}
 `).join("\n")}
 
 GENERATE A PLAN that:
-1. Considers their current mood. If drained, be gentle and minimal. If energised, be ambitious.
-2. Prioritises by deadline AND importance together. A low-importance task due tomorrow beats a critical task due next week.
-3. Gives honest time allocations. Don't cram 8 hours of work into 3 hours.
-4. Breaks each task into 3-5 simple steps a person can actually follow.
+1. Considers their current mood — if drained, be gentle and minimal; if energised, be ambitious.
+2. Prioritises by deadline AND importance — a low-importance task due tomorrow beats a critical task due next week.
+3. Gives honest time allocations — don't cram 8 hours of work into 3 hours.
+4. Breaks each task into 3–5 simple steps a person can actually follow.
 5. Tells them what to completely drop or reschedule if there's too much.
-6. Ends with one short honest line about the evening/day ahead.
+6. Ends with one short honest line about the day ahead.
 
-FORMAT YOUR RESPONSE AS VALID JSON like this:
+FORMAT YOUR RESPONSE AS VALID JSON:
 {
   "situation": "One honest sentence about where they stand right now",
   "startHere": "The single most important first action to take this second",
@@ -194,7 +207,7 @@ FORMAT YOUR RESPONSE AS VALID JSON like this:
       "moodNote": "A short note adjusted to their current mood"
     }
   ],
-  "letGoOf": "What to drop or defer and why",
+  "letGoOf": "What to drop or defer and why — be specific",
   "closingLine": "One genuine, non-generic closing motivational line"
 }
 
@@ -202,8 +215,10 @@ Return ONLY valid JSON. No preamble. No explanation. No markdown code fences.
 `;
 }
 
+/* ── Generate Plan ── */
 async function generatePlan() {
   const result = await callGeminiSafe("", buildPlanPrompt());
+
   if (!result.success) {
     return { success: false, error: "Something went wrong generating your plan. Try again." };
   }
@@ -212,34 +227,38 @@ async function generatePlan() {
     return { success: true, data: parsePlanJSON(result.data) };
   } catch (error) {
     console.error("Plan parse error:", error, result.data);
-    return { success: false, error: "Something went wrong generating your plan. Try again." };
+    return { success: false, error: "Received an unexpected response. Please try again." };
   }
 }
 
+/* ── JSON Parser (strips markdown fences if present) ── */
 function parsePlanJSON(text) {
   const cleaned = text
-    .replace(/^```json/i, "")
-    .replace(/^```/i, "")
-    .replace(/```$/i, "")
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
     .trim();
   return JSON.parse(cleaned);
 }
 
+/* ── Fallbacks ── */
 function fallbackMoodQuestion() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Morning check: are we easing in or ready to move?";
-  if (hour < 18) return "Midday honesty: how much fuel is actually in the tank?";
-  return "End-of-day check: what kind of energy are we working with?";
+  const h = new Date().getHours();
+  if (h < 12) return "Morning check: easing in or ready to move?";
+  if (h < 18) return "Midday check: how much fuel is actually in the tank?";
+  return "End of day: what kind of energy are we working with tonight?";
 }
 
 function fallbackTaskSubtitle(task) {
-  if (task.estimatedMinutes) return `Give this a focused ${Math.min(task.estimatedMinutes, 30)} minute opening round.`;
+  if (task.importance === "critical") return "This one needs to start before anything else.";
+  if (task.estimatedMinutes) return `Give this a focused ${Math.min(task.estimatedMinutes, 30)}-minute opening.`;
   return "Start by making the next step smaller than your resistance.";
 }
 
 function fallbackQuote() {
   const session = getSession();
-  if (session.mood === "drained") return "Keep it tiny today. One clear start still counts.";
-  if (session.mood === "onfire") return "Use the momentum, but spend it on the task that actually changes the day.";
-  return "You do not need the perfect mood. You need a first move small enough to begin.";
+  if (session.mood === "drained")   return "Keep it tiny today. One clear start still counts.";
+  if (session.mood === "onfire")    return "Use the momentum — spend it on the task that actually changes the day.";
+  if (session.mood === "energised") return "You have the fuel. Now pick the one thing that actually matters.";
+  return "You don't need the perfect mood. You need a first move small enough to begin.";
 }

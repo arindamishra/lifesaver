@@ -1,22 +1,27 @@
 {
-  "name": "MOMENTUM",
+  "name": "MOMENTUM — AI Productivity Coach",
   "short_name": "MOMENTUM",
-  "description": "AI-powered mood-aware productivity coach",
+  "description": "AI-powered mood-aware productivity coach. Get a personalised daily plan built around how you actually feel.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0A0F",
   "theme_color": "#7C6FCD",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities"],
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
 }
