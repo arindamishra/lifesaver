@@ -4,7 +4,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 // ⚠️ Replace this with your Google AI Studio key or Auth token:
-const GEMINI_KEY = "key";
+const GEMINI_KEY = "AQ.Ab8RN6KfuTS7wF1Yu6ao6zIOwho7vQhiFsq1z4AoDpdYZYaENg";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
 /* ── Master System Prompt ── */
@@ -59,23 +59,48 @@ async function callGemini(systemPrompt, userMessage) {
   const url = `${GEMINI_BASE_URL}?key=${GEMINI_KEY}`;
   const headers = { "Content-Type": "application/json" };
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: headers,
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: "user", parts: [{ text: userMessage }] }]
-    })
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: headers,
+      signal: controller.signal,
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: userMessage }] }]
+      })
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === "AbortError") throw new Error("Request timed out. Check your internet connection.");
+    throw new Error("Network error. Check your connection and try again.");
+  }
+  clearTimeout(timeout);
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err?.error?.message || "The AI request did not complete.");
+    const raw = await response.text().catch(() => "");
+    let message = "The AI request did not complete.";
+    if (response.status === 400) message = "Invalid API request. Your API key may be wrong.";
+    else if (response.status === 401 || response.status === 403) message = "Invalid API key. Check your Gemini key in ai.js.";
+    else if (response.status === 429) message = "Rate limited. Wait a moment and try again.";
+    else {
+      try { message = JSON.parse(raw)?.error?.message || message; } catch {}
+    }
+    throw new Error(message);
   }
 
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const raw = await response.text();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error("Received an invalid response from the API. Check your API key.");
+  }
 
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("The AI returned an empty response.");
   return text.trim();
 }
