@@ -74,6 +74,7 @@ function wireDashboardEvents() {
   taskForm.addEventListener("submit", handleTaskSubmit);
   document.getElementById("refresh-quote").addEventListener("click", () => handleRefreshQuote());
   document.getElementById("generate-plan").addEventListener("click", handleGeneratePlan);
+  document.getElementById("open-settings").addEventListener("click", () => resetOnboarding());
   document.getElementById("back-dashboard").addEventListener("click", () => {
     stopLoadingMessages();
     navigate("dashboard");

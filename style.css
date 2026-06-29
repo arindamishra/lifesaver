@@ -234,6 +234,52 @@ h3 { font-size: 1rem; font-weight: 600; }
   transition: background var(--t-mood), border-color var(--t-mood), color var(--t-mood);
 }
 
+/* Header actions group (settings + badge) */
+.header-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+/* ── Onboarding Back Button ── */
+.onboarding-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: all var(--t-base);
+  margin-bottom: 4px;
+}
+
+.onboarding-back-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.06);
+}
+
+/* Landing icon glow */
+@keyframes landingPulse {
+  0%, 100% { filter: drop-shadow(0 0 12px var(--accent-glow)); }
+  50%       { filter: drop-shadow(0 0 28px var(--accent-glow)); }
+}
+
+.landing-icon {
+  display: flex;
+  justify-content: center;
+  animation: landingPulse 3s ease-in-out infinite;
+}
+
 /* ── Progress Dots ── */
 .progress-dots {
   position: fixed;
