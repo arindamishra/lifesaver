@@ -3,7 +3,7 @@
    Offline caching with cache-first strategy
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_VERSION = "momentum-v2";
+const CACHE_VERSION = "momentum-v3";
 const ASSETS = [
   "/",
   "/index.html",
