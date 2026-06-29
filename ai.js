@@ -4,7 +4,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 // ⚠️ Replace this with your Google AI Studio key or Auth token:
-const GEMINI_KEY = "api key here";
+const GEMINI_KEY = "key";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 /* ── Master System Prompt ── */
@@ -56,10 +56,8 @@ ${tasks.length
 
 /* ── Core API Call ── */
 async function callGemini(systemPrompt, userMessage) {
-  // Automatically support both API keys (AIza...) and Bearer auth tokens
-    const url = ${GEMINI_BASE_URL}?key=${GEMINI_KEY};
-    const headers = { "Content-Type": "application/json" };
-  }
+  const url = `${GEMINI_BASE_URL}?key=${GEMINI_KEY}`;
+  const headers = { "Content-Type": "application/json" };
 
   const response = await fetch(url, {
     method: "POST",
