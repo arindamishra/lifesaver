@@ -5,7 +5,7 @@
 
 // ⚠️ Replace this with your Google AI Studio key or Auth token:
 const GEMINI_KEY = "key";
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
 /* ── Master System Prompt ── */
 const MASTER_SYSTEM_PROMPT = `
