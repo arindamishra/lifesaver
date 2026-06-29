@@ -3,9 +3,9 @@
    All Gemini API calls, prompt builders, and fallbacks
 ═══════════════════════════════════════════════════════════════ */
 
-// ⚠️  Replace this with your Google AI Studio key:
-const GEMINI_KEY = "AQ.Ab8RN6JtH6aIXAINM7JqKHzMGPfWMr1bAjz2aQSqDTjDkzVBbQ";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+// ⚠️ Replace this with your Google AI Studio key or Auth token:
+const GEMINI_KEY = "YOUR_API_KEY_HERE";
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 /* ── Master System Prompt ── */
 const MASTER_SYSTEM_PROMPT = `
@@ -56,9 +56,18 @@ ${tasks.length
 
 /* ── Core API Call ── */
 async function callGemini(systemPrompt, userMessage) {
-  const response = await fetch(GEMINI_URL, {
+  // Automatically support both API keys (AIza...) and Bearer auth tokens
+  const isApiKey = GEMINI_KEY.startsWith("AIza");
+  const url = isApiKey ? `${GEMINI_BASE_URL}?key=${GEMINI_KEY}` : GEMINI_BASE_URL;
+  
+  const headers = { "Content-Type": "application/json" };
+  if (!isApiKey && GEMINI_KEY !== "YOUR_API_KEY_HERE") {
+    headers["Authorization"] = `Bearer ${GEMINI_KEY}`;
+  }
+
+  const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: headers,
     body: JSON.stringify({
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: "user", parts: [{ text: userMessage }] }]
