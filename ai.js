@@ -4,7 +4,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 // ⚠️ Replace this with your Google AI Studio key or Auth token:
-const GEMINI_KEY = "AQ.Ab8RN6JtH6aIXAINM7JqKHzMGPfWMr1bAjz2aQSqDTjDkzVBbQ";
+const GEMINI_KEY = "AQ.Ab8RN6KKcf8CirmeEaqDL1Dhdd7NK7emQfeXq1dZel_o5ZSQjw";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 /* ── Master System Prompt ── */
