@@ -59,7 +59,6 @@ async function callGemini(systemPrompt, userMessage) {
   // Automatically support both API keys (AIza...) and Bearer auth tokens
     const url = `${GEMINI_BASE_URL}?key=${GEMINI_KEY}`;
     const headers = { "Content-Type": "application/json" };
-  }
 
   const response = await fetch(url, {
     method: "POST",
