@@ -40,8 +40,11 @@ self.addEventListener("activate", event => {
 
 /* ── Fetch: cache-first, network fallback ── */
 self.addEventListener("fetch", event => {
-  // Don't cache API calls
-  if (event.request.url.includes("generativelanguage.googleapis.com")) {
+  // Don't cache API calls (proxy endpoint or direct Google API)
+  if (
+    event.request.url.includes("/api/") ||
+    event.request.url.includes("generativelanguage.googleapis.com")
+  ) {
     return;
   }
 
