@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 3000;
 app.use("/", geminiHandler);
 
 /* ── Serve frontend static files ───────────────────────────── */
-const frontendDir = path.join(__dirname, "lifesaver");
+const frontendDir = __dirname;
 app.use(express.static(frontendDir));
 
 /* ── SPA fallback — send index.html for all other routes ───── */
