@@ -52,7 +52,7 @@ app.use(limiter);
    transient errors (429, 500, 502, 503, 504).
 ──────────────────────────────────────────────────────────────── */
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 2;
 const BASE_DELAY_MS = 1000; // 1 s → 2 s → 4 s
 
 async function fetchWithRetry(url, options, attempt = 1) {
