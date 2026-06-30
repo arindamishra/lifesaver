@@ -4,8 +4,8 @@
    Run with:  npm start
    Opens at:  http://localhost:3000
 
-   Serves the frontend from /lifesaver and proxies /api/gemini
-   to the same handler used by Vercel in production.
+   Serves the frontend from /lifesaver and proxies /api/* to
+   the same Express handler used by Vercel in production.
 ═══════════════════════════════════════════════════════════════ */
 
 require("dotenv").config(); // loads .env into process.env
@@ -17,12 +17,8 @@ const geminiHandler = require("./api/gemini");
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-/* ── Parse JSON bodies before the handler sees them ────────── */
-app.use(express.json({ limit: "50kb" }));
-
-/* ── Proxy /api/gemini to the serverless handler ───────────── */
-app.post("/api/gemini", (req, res) => geminiHandler(req, res));
-app.options("/api/gemini", (req, res) => geminiHandler(req, res));
+/* ── Serve /api/gemini via the same handler as Vercel ──────── */
+app.use("/", geminiHandler);
 
 /* ── Serve frontend static files ───────────────────────────── */
 const frontendDir = path.join(__dirname, "lifesaver");
