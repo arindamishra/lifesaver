@@ -59,7 +59,7 @@ ${tasks.length
 /* ── Core API Call ── */
 async function callGemini(systemPrompt, userMessage) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000); // slightly longer — goes through our server
+  const timeout = setTimeout(() => controller.abort(), 55000); // 55 s — gives server time to retry Gemini
 
   let response;
   try {
@@ -241,20 +241,28 @@ Return ONLY valid JSON. No preamble. No explanation. No markdown code fences.
 
 /* ── Generate Plan ── */
 async function generatePlan() {
-  const result = await callGeminiSafe("", buildPlanPrompt());
+  // Pass the plan prompt as the system instruction so the master prompt
+  // and user context are NOT prepended (they are already inside buildPlanPrompt).
+  let result;
+  try {
+    result = await callGemini(buildPlanPrompt(), "Generate my plan now.");
+  } catch (err) {
+    console.error("Gemini error:", err);
+    return { success: false, error: err.message || "Something went wrong generating your plan. Try again." };
+  }
 
-  if (!result.success) {
-    // Surface the actual error message (e.g. from the API or fetch failure)
-    return { success: false, error: result.error || "Something went wrong generating your plan. Try again." };
+  if (!result) {
+    return { success: false, error: "Something went wrong generating your plan. Try again." };
   }
 
   try {
-    return { success: true, data: parsePlanJSON(result.data) };
+    return { success: true, data: parsePlanJSON(result) };
   } catch (error) {
-    console.error("Plan parse error:", error, result.data);
+    console.error("Plan parse error:", error, result);
     return { success: false, error: "Received an unexpected response. Please try again." };
   }
 }
+
 
 /* ── JSON Parser (strips markdown fences if present) ── */
 function parsePlanJSON(text) {
