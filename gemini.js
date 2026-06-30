@@ -2,63 +2,24 @@
    MOMENTUM — Gemini API Proxy
    Vercel Serverless Function  |  /api/gemini
 
-   The API key lives ONLY here in process.env.
-   The browser never sees it.
+   Exported as a plain async handler (not Express) so Vercel can
+   correctly detect it, apply maxDuration, and route to it.
+   The API key lives ONLY here in process.env — never in the browser.
 ═══════════════════════════════════════════════════════════════ */
 
-const express = require("express");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
 const fetch = require("node-fetch");
 
-const app = express();
-app.set("trust proxy", 1); // Trust Vercel's reverse proxy for accurate IP rate limiting
-
-/* ── CORS ─────────────────────────────────────────────────────
-   Allow requests only from the same origin (your Vercel domain
-   or localhost in dev). Adjust ALLOWED_ORIGIN in env if needed.
-──────────────────────────────────────────────────────────────── */
-const allowedOrigins = (process.env.ALLOWED_ORIGIN || "")
-  .split(",")
-  .map(s => s.trim())
-  .filter(Boolean);
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(null, true);
-  },
-  methods: ["POST"],
-  allowedHeaders: ["Content-Type"]
-}));
-
-/* ── Body parsing ──────────────────────────────────────────── */
-app.use(express.json({ limit: "50kb" }));
-
-/* ── Rate limiting ─────────────────────────────────────────── */
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many requests. Please wait a moment and try again." }
-});
-app.use(limiter);
-
 /* ── Retry helper with exponential backoff ─────────────────────
-   Retries the Gemini request up to MAX_RETRIES times on
-   transient errors (429, 500, 502, 503, 504).
+   Retries up to MAX_RETRIES times on transient errors.
 ──────────────────────────────────────────────────────────────── */
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_RETRIES = 2;
-const BASE_DELAY_MS = 1000; // 1 s → 2 s → 4 s
+const BASE_DELAY_MS = 1000; // 1 s → 2 s
 
 async function fetchWithRetry(url, options, attempt = 1) {
-  // Use AbortController so the timeout covers the full response, not just the connection
+  // AbortController covers the full response, not just the TCP connection
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000); // 25-second hard timeout
+  const timer = setTimeout(() => controller.abort(), 25000); // 25 s per attempt
 
   let response;
   try {
@@ -72,13 +33,12 @@ async function fetchWithRetry(url, options, attempt = 1) {
   }
   clearTimeout(timer);
 
-  // Retry on transient server-side / rate-limit errors
+  // Retry on transient errors
   if (RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
-    // Respect Retry-After header if present (in seconds)
     const retryAfter = parseInt(response.headers.get("retry-after") || "0", 10);
     const delay = retryAfter > 0
       ? retryAfter * 1000
-      : BASE_DELAY_MS * Math.pow(2, attempt - 1); // 1 s, 2 s, 4 s …
+      : BASE_DELAY_MS * Math.pow(2, attempt - 1);
 
     console.warn(`Gemini returned ${response.status}. Retrying in ${delay}ms (attempt ${attempt}/${MAX_RETRIES})…`);
     await new Promise(r => setTimeout(r, delay));
@@ -88,18 +48,33 @@ async function fetchWithRetry(url, options, attempt = 1) {
   return response;
 }
 
-/* ── POST /api/gemini ──────────────────────────────────────── */
-app.post("/api/gemini", async (req, res) => {
-  const apiKey = process.env.GEMINI_KEY;
+/* ── Vercel Serverless Handler ─────────────────────────────────
+   Exported as a plain async function — Vercel detects this
+   correctly and applies the maxDuration from vercel.json.
+──────────────────────────────────────────────────────────────── */
+module.exports = async function handler(req, res) {
+  // CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
+  // Handle preflight
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed." });
+  }
+
+  const apiKey = process.env.GEMINI_KEY;
   if (!apiKey || apiKey === "your_google_ai_studio_key_here") {
     return res.status(500).json({
       error: "Server is missing the Gemini API key. Set GEMINI_KEY in your environment variables."
     });
   }
 
-  const { system_instruction, contents } = req.body;
-
+  const { system_instruction, contents } = req.body || {};
   if (!contents || !Array.isArray(contents)) {
     return res.status(400).json({ error: "Invalid request body." });
   }
@@ -129,7 +104,6 @@ app.post("/api/gemini", async (req, res) => {
     });
   }
 
-  /* Forward non-2xx status codes with a clean message */
   if (!geminiRes.ok) {
     const raw = await geminiRes.text().catch(() => "");
     let message = "The AI request did not complete. Please try again in a few seconds.";
@@ -138,7 +112,6 @@ app.post("/api/gemini", async (req, res) => {
     if (geminiRes.status === 429) message = "AI service is busy. Please wait 30 seconds and try again.";
     if (geminiRes.status === 500) message = "The AI service encountered an internal error. Please try again.";
     if (geminiRes.status === 503) message = "The AI service is temporarily unavailable. Please try again shortly.";
-    // Try to surface Google's own error message if it's more descriptive
     try {
       const parsed = JSON.parse(raw);
       if (parsed?.error?.message) message = parsed.error.message;
@@ -149,8 +122,4 @@ app.post("/api/gemini", async (req, res) => {
 
   const data = await geminiRes.json();
   return res.status(200).json(data);
-});
-
-/* ── Export for Vercel ─────────────────────────────────────── */
-module.exports = app;
-
+};
