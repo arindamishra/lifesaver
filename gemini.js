@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    MOMENTUM — Gemini API Proxy
    Vercel Serverless Function  |  /api/gemini
-   
+
    The API key lives ONLY here in process.env.
    The browser never sees it.
 ═══════════════════════════════════════════════════════════════ */
@@ -25,13 +25,9 @@ const allowedOrigins = (process.env.ALLOWED_ORIGIN || "")
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (same-origin, Vercel SSR, curl)
     if (!origin) return callback(null, true);
-    // Allow any localhost port for local dev
     if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
-    // Allow explicitly listed origins
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    // On Vercel the frontend and api share the same domain — always allow
     return callback(null, true);
   },
   methods: ["POST"],
@@ -39,17 +35,58 @@ app.use(cors({
 }));
 
 /* ── Body parsing ──────────────────────────────────────────── */
-app.use(express.json({ limit: "50kb" })); // reject oversized payloads
+app.use(express.json({ limit: "50kb" }));
 
 /* ── Rate limiting ─────────────────────────────────────────── */
 const limiter = rateLimit({
-  windowMs: 60 * 1000,   // 1 minute window
-  max: 20,               // 20 requests per IP per minute
+  windowMs: 60 * 1000,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests. Please wait a moment and try again." }
 });
 app.use(limiter);
+
+/* ── Retry helper with exponential backoff ─────────────────────
+   Retries the Gemini request up to MAX_RETRIES times on
+   transient errors (429, 500, 502, 503, 504).
+──────────────────────────────────────────────────────────────── */
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000; // 1 s → 2 s → 4 s
+
+async function fetchWithRetry(url, options, attempt = 1) {
+  // Use AbortController so the timeout covers the full response, not just the connection
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000); // 25-second hard timeout
+
+  let response;
+  try {
+    response = await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === "AbortError") {
+      throw Object.assign(new Error("Request timed out after 25 s"), { isTimeout: true });
+    }
+    throw err;
+  }
+  clearTimeout(timer);
+
+  // Retry on transient server-side / rate-limit errors
+  if (RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
+    // Respect Retry-After header if present (in seconds)
+    const retryAfter = parseInt(response.headers.get("retry-after") || "0", 10);
+    const delay = retryAfter > 0
+      ? retryAfter * 1000
+      : BASE_DELAY_MS * Math.pow(2, attempt - 1); // 1 s, 2 s, 4 s …
+
+    console.warn(`Gemini returned ${response.status}. Retrying in ${delay}ms (attempt ${attempt}/${MAX_RETRIES})…`);
+    await new Promise(r => setTimeout(r, delay));
+    return fetchWithRetry(url, options, attempt + 1);
+  }
+
+  return response;
+}
 
 /* ── POST /api/gemini ──────────────────────────────────────── */
 app.post("/api/gemini", async (req, res) => {
@@ -72,33 +109,48 @@ app.post("/api/gemini", async (req, res) => {
 
   let geminiRes;
   try {
-    geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system_instruction, contents }),
-      // 20-second server-side timeout
-      timeout: 20000
-    });
+    geminiRes = await fetchWithRetry(
+      `${GEMINI_URL}?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system_instruction, contents })
+      }
+    );
   } catch (err) {
     console.error("Gemini fetch error:", err);
-    return res.status(502).json({ error: "Could not reach the AI service. Try again." });
+    if (err.isTimeout) {
+      return res.status(504).json({
+        error: "The AI is taking too long to respond. Please try again."
+      });
+    }
+    return res.status(502).json({
+      error: "Could not reach the AI service. Check your connection and try again."
+    });
   }
 
   /* Forward non-2xx status codes with a clean message */
   if (!geminiRes.ok) {
     const raw = await geminiRes.text().catch(() => "");
-    let message = "The AI request did not complete.";
+    let message = "The AI request did not complete. Please try again in a few seconds.";
     if (geminiRes.status === 400) message = "Invalid request sent to the AI.";
     if (geminiRes.status === 401 || geminiRes.status === 403) message = "Server API key is invalid or not authorised.";
-    if (geminiRes.status === 429) message = "Rate limited by the AI provider. Wait a moment and try again.";
-    try { message = JSON.parse(raw)?.error?.message || message; } catch { }
+    if (geminiRes.status === 429) message = "AI service is busy. Please wait 30 seconds and try again.";
+    if (geminiRes.status === 500) message = "The AI service encountered an internal error. Please try again.";
+    if (geminiRes.status === 503) message = "The AI service is temporarily unavailable. Please try again shortly.";
+    // Try to surface Google's own error message if it's more descriptive
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed?.error?.message) message = parsed.error.message;
+    } catch { /* ignore parse errors */ }
+    console.error(`Gemini error ${geminiRes.status}:`, raw.slice(0, 300));
     return res.status(geminiRes.status).json({ error: message });
   }
 
-  /* Stream the successful response straight back to the client */
   const data = await geminiRes.json();
   return res.status(200).json(data);
 });
 
 /* ── Export for Vercel ─────────────────────────────────────── */
 module.exports = app;
+
