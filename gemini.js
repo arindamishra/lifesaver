@@ -12,6 +12,7 @@ const rateLimit = require("express-rate-limit");
 const fetch = require("node-fetch");
 
 const app = express();
+app.set("trust proxy", 1); // Trust Vercel's reverse proxy for accurate IP rate limiting
 
 /* ── CORS ─────────────────────────────────────────────────────
    Allow requests only from the same origin (your Vercel domain
