@@ -8,10 +8,5 @@
       "source": "/(.*)",
       "destination": "/lifesaver/$1"
     }
-  ],
-  "functions": {
-    "api/gemini.js": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
